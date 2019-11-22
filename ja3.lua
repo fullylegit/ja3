@@ -31,12 +31,12 @@ function remove_grease( list )
     return clean_list
 end
 
-f_handshake_type  = Field.new( 'ssl.handshake.type' )
-f_ssl_version     = Field.new( 'ssl.handshake.version' )
-f_ciphers         = Field.new( 'ssl.handshake.ciphersuite' )
-f_extensions      = Field.new( 'ssl.handshake.extension.type' )
-f_ec              = Field.new( 'ssl.handshake.extensions_supported_group' )
-f_ec_point_format = Field.new( 'ssl.handshake.extensions_ec_point_format' )
+f_handshake_type  = Field.new( 'tls.handshake.type' )
+f_ssl_version     = Field.new( 'tls.handshake.version' )
+f_ciphers         = Field.new( 'tls.handshake.ciphersuite' )
+f_extensions      = Field.new( 'tls.handshake.extension.type' )
+f_ec              = Field.new( 'tls.handshake.extensions_supported_group' )
+f_ec_point_format = Field.new( 'tls.handshake.extensions_ec_point_format' )
 
 field_full = ProtoField.string( 'ja3.full', 'full' )
 field_hash = ProtoField.string( 'ja3.hash', 'hash' )
@@ -55,17 +55,18 @@ function proto_ja3.dissector( buffer, pkt_info, tree )
     local cipher_list = { f_ciphers() }
     local extension_list = { f_extensions() }
     local ec_curve_list = { f_ec() }
-    local ec_curve_point_format = f_ec_point_format()
+    local ec_curve_point_list = { f_ec_point_format() }
 
     if version then
         clean_cipher_list = remove_grease( cipher_list )
         clean_extension_list = remove_grease( extension_list )
         clean_ec_curve_list = remove_grease( ec_curve_list )
+        clean_ec_curve_point_list = remove_grease( ec_curve_point_list )
 
         local ciphers_string = table.concat( clean_cipher_list, '-' )
         local extensions_string = table.concat( clean_extension_list, '-' )
         local curves_string = table.concat( clean_ec_curve_list, '-' )
-        local ec_curve_point_format_string = ec_curve_point_format and ec_curve_point_format.value or ''
+        local ec_curve_point_format_string = table.concat( clean_ec_curve_point_list, '-' ) or ''
 
         local ja3_string = table.concat( { version.value, ciphers_string, extensions_string, curves_string, ec_curve_point_format_string }, ',' )
         local ja3_hash = md5.sumhexa( ja3_string )
