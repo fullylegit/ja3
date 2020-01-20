@@ -31,12 +31,22 @@ function remove_grease( list )
     return clean_list
 end
 
-f_handshake_type  = Field.new( 'tls.handshake.type' )
-f_ssl_version     = Field.new( 'tls.handshake.version' )
-f_ciphers         = Field.new( 'tls.handshake.ciphersuite' )
-f_extensions      = Field.new( 'tls.handshake.extension.type' )
-f_ec              = Field.new( 'tls.handshake.extensions_supported_group' )
-f_ec_point_format = Field.new( 'tls.handshake.extensions_ec_point_format' )
+-- wireshark v3 changes ssl to tls
+if pcall( function() Field.new( 'tls.handshake.type' ) end ) then
+    f_handshake_type  = Field.new( 'tls.handshake.type' )
+    f_ssl_version     = Field.new( 'tls.handshake.version' )
+    f_ciphers         = Field.new( 'tls.handshake.ciphersuite' )
+    f_extensions      = Field.new( 'tls.handshake.extension.type' )
+    f_ec              = Field.new( 'tls.handshake.extensions_supported_group' )
+    f_ec_point_format = Field.new( 'tls.handshake.extensions_ec_point_format' )
+else
+    f_handshake_type  = Field.new( 'ssl.handshake.type' )
+    f_ssl_version     = Field.new( 'ssl.handshake.version' )
+    f_ciphers         = Field.new( 'ssl.handshake.ciphersuite' )
+    f_extensions      = Field.new( 'ssl.handshake.extension.type' )
+    f_ec              = Field.new( 'ssl.handshake.extensions_supported_group' )
+    f_ec_point_format = Field.new( 'ssl.handshake.extensions_ec_point_format' )
+end
 
 field_full = ProtoField.string( 'ja3.full', 'full' )
 field_hash = ProtoField.string( 'ja3.hash', 'hash' )
