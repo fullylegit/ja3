@@ -1,5 +1,10 @@
+
 local md5 = require 'md5' -- https://github.com/kikito/md5.lua
 
+TYPE_CLIENT_HELLO = 1
+TYPE_SERVER_HELLO = 2
+
+-- source: https://tools.ietf.org/html/draft-ietf-tls-grease-02
 GREASE_VALUES = {
     [0x0A0A] = true,
     [0x1A1A] = true,
@@ -18,8 +23,6 @@ GREASE_VALUES = {
     [0xEAEA] = true,
     [0xFAFA] = true,
 }
--- source: https://tools.ietf.org/html/draft-ietf-tls-grease-02
-TYPE_CLIENT = 1
 
 function remove_grease( list )
     local clean_list = {}
@@ -48,16 +51,19 @@ else
     f_ec_point_format = Field.new( 'ssl.handshake.extensions_ec_point_format' )
 end
 
-field_full = ProtoField.string( 'ja3.full', 'full' )
-field_hash = ProtoField.string( 'ja3.hash', 'hash' )
-proto_ja3 = Proto( 'ja3', 'ja3 TLS/SSL fingerprint' )
-proto_ja3.fields = { field_full, field_hash }
+field_ja3_full = ProtoField.string( 'ja3.full', 'ja3 full' )
+field_ja3_hash = ProtoField.string( 'ja3.hash', 'ja3 hash' )
+field_ja3s_full = ProtoField.string( 'ja3s.full', 'ja3s full' )
+field_ja3s_hash = ProtoField.string( 'ja3s.hash', 'ja3s hash' )
+proto_ja3 = Proto( 'ja3', 'ja3/ja3s TLS/SSL fingerprint' )
+proto_ja3.fields = { field_ja3_full, field_ja3_hash, field_ja3s_full, field_ja3s_hash }
 
 local orig_ssl_dissector
 function proto_ja3.dissector( buffer, pkt_info, tree )
     orig_ssl_dissector:call( buffer, pkt_info, tree )
     local handshake_type = f_handshake_type()
-    if not handshake_type or handshake_type.value ~= TYPE_CLIENT then
+    if not handshake_type or (handshake_type.value ~= TYPE_CLIENT_HELLO and
+            handshake_type.value ~= TYPE_SERVER_HELLO) then
         return
     end
 
@@ -67,23 +73,35 @@ function proto_ja3.dissector( buffer, pkt_info, tree )
     local ec_curve_list = { f_ec() }
     local ec_curve_point_list = { f_ec_point_format() }
 
-    if version then
-        clean_cipher_list = remove_grease( cipher_list )
-        clean_extension_list = remove_grease( extension_list )
+    if not version then
+        return
+    end
+
+    clean_cipher_list = remove_grease( cipher_list )
+    clean_extension_list = remove_grease( extension_list )
+    if handshake_type.value == TYPE_CLIENT_HELLO then
         clean_ec_curve_list = remove_grease( ec_curve_list )
         clean_ec_curve_point_list = remove_grease( ec_curve_point_list )
+    end
 
-        local ciphers_string = table.concat( clean_cipher_list, '-' )
-        local extensions_string = table.concat( clean_extension_list, '-' )
-        local curves_string = table.concat( clean_ec_curve_list, '-' )
-        local ec_curve_point_format_string = table.concat( clean_ec_curve_point_list, '-' ) or ''
+    local ciphers_string = table.concat( clean_cipher_list, '-' )
+    local extensions_string = table.concat( clean_extension_list, '-' )
+    local curves_string = table.concat( clean_ec_curve_list, '-' )
+    local ec_curve_point_format_string = table.concat( clean_ec_curve_point_list, '-' ) or ''
 
+    local subtree = tree:add( proto_ja3, buffer )
+    if handshake_type.value == TYPE_CLIENT_HELLO then
         local ja3_string = table.concat( { version.value, ciphers_string, extensions_string, curves_string, ec_curve_point_format_string }, ',' )
         local ja3_hash = md5.sumhexa( ja3_string )
 
-        local subtree = tree:add( proto_ja3, buffer )
-        subtree:add( field_full, buffer(), ja3_string )
-        subtree:add( field_hash, buffer(), ja3_hash )
+        subtree:add(field_ja3_full, buffer(), ja3_string )
+        subtree:add(field_ja3_hash, buffer(), ja3_hash )
+    elseif handshake_type.value == TYPE_SERVER_HELLO then
+        local ja3s_string = table.concat( { version.value, ciphers_string, extensions_string }, ',' )
+        local ja3s_hash = md5.sumhexa( ja3s_string )
+
+        subtree:add(field_ja3s_full, buffer(), ja3s_string )
+        subtree:add(field_ja3s_hash, buffer(), ja3s_hash )
     end
 end
 
