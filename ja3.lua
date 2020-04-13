@@ -34,6 +34,17 @@ function remove_grease( list )
     return clean_list
 end
 
+-- https://tools.ietf.org/html/draft-ietf-tls-padding-04
+function remove_padding( list )
+	local clean_list = {}
+	for k, v in pairs(list) do
+		if v ~= 21 then
+			table.insert( clean_list, v )
+		end
+	end
+    return clean_list
+end
+
 -- wireshark v3 changes ssl to tls
 if pcall( function() Field.new( 'tls.handshake.type' ) end ) then
     f_handshake_type  = Field.new( 'tls.handshake.type' )
@@ -53,10 +64,12 @@ end
 
 field_ja3_full = ProtoField.string( 'ja3.full', 'ja3 full' )
 field_ja3_hash = ProtoField.string( 'ja3.hash', 'ja3 hash' )
+field_ja3_hash_ignored_padding = ProtoField.string( 'ja3.hash_ignored_padding', 'ja3 hash_ignored_padding' )
+field_ja3_full_ignored_padding = ProtoField.string( 'ja3.full_ignored_padding', 'ja3 full_ignored_padding' )
 field_ja3s_full = ProtoField.string( 'ja3s.full', 'ja3s full' )
 field_ja3s_hash = ProtoField.string( 'ja3s.hash', 'ja3s hash' )
 proto_ja3 = Proto( 'ja3', 'ja3/ja3s TLS/SSL fingerprint' )
-proto_ja3.fields = { field_ja3_full, field_ja3_hash, field_ja3s_full, field_ja3s_hash }
+proto_ja3.fields = { field_ja3_full, field_ja3_hash, field_ja3_full_ignored_padding, field_ja3_hash_ignored_padding, field_ja3s_full, field_ja3s_hash}
 
 local orig_ssl_dissector
 function proto_ja3.dissector( buffer, pkt_info, tree )
@@ -79,6 +92,7 @@ function proto_ja3.dissector( buffer, pkt_info, tree )
 
     clean_cipher_list = remove_grease( cipher_list )
     clean_extension_list = remove_grease( extension_list )
+
     if handshake_type.value == TYPE_CLIENT_HELLO then
         clean_ec_curve_list = remove_grease( ec_curve_list )
         clean_ec_curve_point_list = remove_grease( ec_curve_point_list )
@@ -86,6 +100,9 @@ function proto_ja3.dissector( buffer, pkt_info, tree )
 
     local ciphers_string = table.concat( clean_cipher_list, '-' )
     local extensions_string = table.concat( clean_extension_list, '-' )
+
+    clean_extension_list_nopadding = remove_padding( clean_extension_list )
+    local extensions_string_no_padding = table.concat( clean_extension_list_nopadding, '-' )
     local curves_string = table.concat( clean_ec_curve_list, '-' )
     local ec_curve_point_format_string = table.concat( clean_ec_curve_point_list, '-' ) or ''
 
@@ -93,9 +110,13 @@ function proto_ja3.dissector( buffer, pkt_info, tree )
     if handshake_type.value == TYPE_CLIENT_HELLO then
         local ja3_string = table.concat( { version.value, ciphers_string, extensions_string, curves_string, ec_curve_point_format_string }, ',' )
         local ja3_hash = md5.sumhexa( ja3_string )
+		local ja3_string_no_padding = table.concat( { version.value, ciphers_string, extensions_string_no_padding, curves_string, ec_curve_point_format_string }, ',' )
+		local ja3_hash_no_padding = md5.sumhexa( ja3_string_no_padding )
 
         subtree:add(field_ja3_full, buffer(), ja3_string )
         subtree:add(field_ja3_hash, buffer(), ja3_hash )
+		subtree:add(field_ja3_hash_ignored_padding, buffer(), ja3_hash_no_padding )
+		subtree:add(field_ja3_full_ignored_padding, buffer(), ja3_string_no_padding )
     elseif handshake_type.value == TYPE_SERVER_HELLO then
         local ja3s_string = table.concat( { version.value, ciphers_string, extensions_string }, ',' )
         local ja3s_hash = md5.sumhexa( ja3s_string )
