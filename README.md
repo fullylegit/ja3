@@ -9,6 +9,6 @@ An implementation of the [JA3](https://github.com/salesforce/ja3) TLS client fin
    - Alternatively Ubuntu users can install a compatible library by running `apt install lua-md5`
 
 ## Usage
-In Wireshark, for TLS or SSL packets, this plugin will display addinitional information.
+In Wireshark, for TLS or SSL packets, this plugin will display additional information.
 JA3 information in form of full info and MD5-hash for client handshake packets.
 JA3S information will be displayed for server hello packets.
