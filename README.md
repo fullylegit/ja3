@@ -12,3 +12,10 @@ An implementation of the [JA3](https://github.com/salesforce/ja3) TLS client fin
 In Wireshark, for TLS or SSL packets, this plugin will display additional information.
 JA3 information in form of full info and MD5-hash for client handshake packets.
 JA3S information will be displayed for server hello packets.
+
+
+<code>wget https://raw.githubusercontent.com/fullylegit/ja3/master/ja3.lua</code><br>
+<code>wget https://raw.githubusercontent.com/kikito/md5.lua/master/md5.lua</code><br>
+
+<code>cp -r ja3.lua md5.lua /usr/lib/x86_64-linux-gnu/wireshark/plugins</code><br>
+<code>whireshark==>analyzer==>reolad lua plugins==>filter tls</code><br>
