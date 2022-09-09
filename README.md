@@ -18,4 +18,4 @@ JA3S information will be displayed for server hello packets.
 <code>wget https://raw.githubusercontent.com/kikito/md5.lua/master/md5.lua</code><br>
 
 <code>cp -r ja3.lua md5.lua /usr/lib/x86_64-linux-gnu/wireshark/plugins</code><br>
-<code>whireshark==>analyzer==>reolad lua plugins==>filter tls</code><br>
+<code>wireshark==>analyzer==>reolad lua plugins==>filter tls</code><br>
